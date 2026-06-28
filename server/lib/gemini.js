@@ -14,11 +14,11 @@ function getClient() {
 }
 
 const MODEL_CONFIG = {
-  jd_parser: { model: "gemini-2.5-flash-preview-04-17", temperature: 0.1 },
-  gap_analyzer: { model: "gemini-2.5-flash-preview-04-17", temperature: 0.3 },
-  resume_writer: { model: "gemini-2.5-flash-preview-04-17", temperature: 0.4 },
-  cover_letter_writer: { model: "gemini-2.5-flash-preview-04-17", temperature: 0.5 },
-  fit_scorer: { model: "gemini-2.5-flash-preview-04-17", temperature: 0.2 },
+  jd_parser: { model: "gemini-2.0-flash", temperature: 0.1 },
+  gap_analyzer: { model: "gemini-2.0-flash", temperature: 0.3 },
+  resume_writer: { model: "gemini-2.0-flash", temperature: 0.4 },
+  cover_letter_writer: { model: "gemini-2.0-flash", temperature: 0.5 },
+  fit_scorer: { model: "gemini-2.0-flash", temperature: 0.2 },
 };
 
 export async function callGemini(prompt, taskName) {
