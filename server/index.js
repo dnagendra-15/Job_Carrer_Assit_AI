@@ -6,8 +6,9 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { parsePdf, countPages } from "./lib/pdf-parser.js";
 import { fetchJdFromUrl } from "./lib/jd-fetcher.js";
-import { callGemini } from "./lib/gemini.js";
+import { callAI } from "./lib/ai-client.js";
 import { textToDocx, textToPdf } from "./lib/doc-exporter.js";
+import { discoverModels, getDiscoveredModels, getSelectedConfig, isDiscoveryComplete } from "./lib/model-discovery.js";
 import * as prompts from "./lib/prompts.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -49,6 +50,24 @@ setInterval(() => {
 // ── Health ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
+// ── Model Status ─────────────────────────────────────────────────────────────
+app.get("/api/models", (req, res) => {
+  res.json({
+    ready: isDiscoveryComplete(),
+    discovered: getDiscoveredModels(),
+    selected: getSelectedConfig(),
+  });
+});
+
+app.post("/api/models/refresh", async (req, res) => {
+  try {
+    const config = await discoverModels();
+    res.json({ status: "refreshed", selected: config });
+  } catch (err) {
+    res.status(500).json({ detail: "Model refresh failed: " + err.message });
+  }
+});
+
 // ── POST /api/analyze ────────────────────────────────────────────────────────
 app.post("/api/analyze", upload.single("resume"), async (req, res) => {
   try {
@@ -86,7 +105,7 @@ app.post("/api/analyze", upload.single("resume"), async (req, res) => {
     }
 
     // Parse JD with Gemini
-    const jdParseResult = await callGemini(prompts.jdParserPrompt(rawJdText), "jd_parser");
+    const jdParseResult = await callAI(prompts.jdParserPrompt(rawJdText), "jd_parser");
     let jdText = rawJdText, jdTitle = "Role", jdCompany = "Company";
     try {
       const parsed = JSON.parse(jdParseResult);
@@ -96,7 +115,7 @@ app.post("/api/analyze", upload.single("resume"), async (req, res) => {
     } catch {}
 
     // Analyze gaps
-    const gapResult = await callGemini(prompts.gapAnalyzerPrompt(resumeText, jdText, jdTitle, jdCompany), "gap_analyzer");
+    const gapResult = await callAI(prompts.gapAnalyzerPrompt(resumeText, jdText, jdTitle, jdCompany), "gap_analyzer");
     let gaps = [];
     try {
       let text = gapResult.trim();
@@ -329,19 +348,19 @@ async function runGeneration(sessionId) {
     : "";
 
   // Resume writer
-  const resumeOutput = await callGemini(
+  const resumeOutput = await callAI(
     prompts.resumeWriterPrompt(resumeText, jdText, jdTitle, jdCompany, extraContext),
     "resume_writer"
   );
 
   // Cover letter writer
-  const coverOutput = await callGemini(
+  const coverOutput = await callAI(
     prompts.coverLetterPrompt(resumeText, jdText, jdTitle, jdCompany, extraContext),
     "cover_letter_writer"
   );
 
   // Fit scorer
-  const scoreRaw = await callGemini(
+  const scoreRaw = await callAI(
     prompts.fitScorerPrompt(resumeText, jdText, extraContext),
     "fit_scorer"
   );
@@ -380,4 +399,5 @@ async function runGeneration(sessionId) {
 const PORT = process.env.PORT || 8001;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Backend running on http://localhost:${PORT}`);
+  discoverModels().catch((err) => console.error("Model discovery failed:", err.message));
 });
