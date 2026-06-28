@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Co-Pilot — AI Resume Tailor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <span class="logo">Job Co-Pilot</span>
+    <button id="new-session-btn" class="btn-ghost" style="display:none">+ New Analysis</button>
+  </header>
+
+  <!-- SECTION 1: INPUTS -->
+  <section id="input-section" class="input-section">
+    <div class="input-card">
+      <h1>Land the role you want</h1>
+      <p class="subtitle">Drop your resume + paste a job listing — AI does the tailoring.</p>
+
+      <div class="inputs-row">
+        <!-- Resume upload -->
+        <div class="input-group">
+          <label>Your resume (PDF)</label>
+          <div id="drop-zone" class="drop-zone">
+            <div id="drop-zone-content">
+              <span class="drop-icon">&#128196;</span>
+              <span>Drop PDF here or <u>click to browse</u></span>
+            </div>
+            <div id="drop-zone-uploaded" style="display:none">
+              <span class="drop-icon">&#9989;</span>
+              <span id="filename-display"></span>
+            </div>
+            <input type="file" id="resume-input" accept=".pdf" style="display:none">
+          </div>
+        </div>
+
+        <!-- JD URL -->
+        <div class="input-group">
+          <label>Job listing URL</label>
+          <input type="url" id="jd-url-input" placeholder="https://jobs.company.com/role-id" class="url-input">
+          <span class="url-hint">LinkedIn, Indeed, Naukri, company career pages — most work</span>
+        </div>
+      </div>
+
+      <button id="analyze-btn" class="btn-primary btn-large" disabled>
+        <span id="analyze-btn-text">Analyse My Fit</span>
+        <span id="analyze-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="input-error" class="error-msg" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- SECTION 2: CHAT -->
+  <section id="chat-section" style="display:none">
+    <div class="chat-header">
+      <div id="role-badge" class="role-badge"></div>
+      <div class="chat-status" id="chat-status"></div>
+    </div>
+
+    <div id="chat-messages" class="chat-messages"></div>
+
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Type your answer..." class="chat-input" disabled>
+      <button id="send-btn" class="btn-primary send-btn" disabled>Send</button>
+    </div>
+    <p class="chat-hint">Be specific — more context = better resume. Press Enter to send.</p>
+  </section>
+
+  <!-- SECTION 3: RESULTS -->
+  <section id="results-section" style="display:none">
+    <!-- Fit score -->
+    <div id="score-card" class="score-card"></div>
+
+    <!-- Resume -->
+    <div class="result-block">
+      <div class="result-block-header">
+        <h2>Updated Resume</h2>
+        <button class="btn-ghost copy-btn" data-target="resume-content">Copy</button>
+        <button class="btn-primary" id="download-resume-btn">Download .docx</button>
+      </div>
+      <div id="resume-content" class="result-content"></div>
+    </div>
+
+    <!-- Cover letter -->
+    <div class="result-block">
+      <div class="result-block-header">
+        <h2>Cover Letter</h2>
+        <button class="btn-ghost copy-btn" data-target="cover-content">Copy</button>
+        <button class="btn-primary" id="download-cover-btn">Download .docx</button>
+      </div>
+      <div id="cover-content" class="result-content cover-letter-style"></div>
+    </div>
+  </section>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

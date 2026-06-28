@@ -1,0 +1,61 @@
+How the app works (user flow)
+1. User uploads resume PDF + pastes a job listing URL
+2. Backend fetches JD, parses resume, identifies 3–5 skill/experience gaps
+3. Chat opens — AI asks targeted questions about each gap
+4. User answers each question in the chat field
+5. After all gaps are addressed, AI confirms: "Ready to generate?"
+6. User types "yes" → AI generates updated resume + cover letter + fit score
+7. Results appear below the chat, downloadable as .docx& .pdf
+
+Architecture at a Glance
+
+Browser (Vanilla HTML/CSS/JS)
+    │  POST /api/analyze  (resume PDF + JD URL)
+    │  POST /api/chat     (user answers, session_id)
+    │  GET  /api/results/{session_id}
+    ▼
+FastAPI backend
+    │
+    ▼
+LangGraph pipeline  (SqliteSaver checkpointer, thread_id = session_id)
+    │
+    ├── fetch_jd_node       → scrapes URL → extracts JD text/title/company
+    ├── analyze_node        → compares resume vs JD → identifies gaps list
+    ├── chat_questioner     → interrupt() per gap → resumes with user answer
+    │       ↑___loop_______|
+    ├── confirm_node        → interrupt() for final confirmation
+    └── generate_node       → resume_writer + cover_letter_writer + fit_scorer
+            │
+            ▼
+    models_config.py   ← change provider/model per node here
+    (Groq / OpenAI / Anthropic/Gemini)
+
+File structure
+
+job-copilot/
+├── backend/
+│   ├── main.py
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── models_config.py      ← ONLY file you edit to switch LLM
+│   ├── graph/
+│   │   ├── __init__.py
+│   │   ├── state.py              ← LangGraph TypedDict state
+│   │   ├── nodes.py              ← all node functions
+│   │   └── pipeline.py           ← graph assembly + SqliteSaver
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── pdf_parser.py
+│   │   ├── jd_fetcher.py
+│   │   └── doc_exporter.py
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   └── api_router.py
+│   ├── requirements.txt
+│   └── .env.example
+├── frontend/
+│   ├── index.html
+│   ├── style.css
+│   └── app.js
+├── render.yaml
+└── README.md
