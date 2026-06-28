@@ -201,6 +201,27 @@ h1 {
   color: var(--text-bright);
 }
 
+.btn-secondary {
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 200ms, transform 100ms;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.btn-secondary:hover {
+  background: var(--accent-blue-hover);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
 /* ERROR */
 .error-msg {
   color: var(--danger);
@@ -447,6 +468,7 @@ h1 {
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
 .result-block-header h2 {
@@ -454,6 +476,12 @@ h1 {
   color: var(--text-bright);
   font-size: 18px;
   font-weight: 600;
+}
+
+.result-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .result-content {

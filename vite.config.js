@@ -2,45 +2,22 @@ import { defineConfig } from "vite";
 import { spawn } from "child_process";
 
 function backendPlugin() {
-  let backendProc;
+  let proc;
   return {
     name: "start-backend",
     configureServer() {
-      const env = {
-        ...process.env,
-        PATH: `${process.env.HOME}/.local/bin:${process.env.PATH}`,
-        PYTHONPATH: process.cwd(),
-      };
-
-      const pip = spawn("pip", ["install", "-r", "requirements.txt"], {
+      proc = spawn("node", ["server/index.js"], {
         stdio: "inherit",
         cwd: process.cwd(),
-        env,
+        env: { ...process.env },
       });
-
-      pip.on("close", (code) => {
-        if (code !== 0) {
-          console.error(`pip install exited with code ${code}, attempting to start backend anyway...`);
-        }
-        backendProc = spawn("python3", ["-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"], {
-          stdio: "inherit",
-          cwd: process.cwd(),
-          env,
-        });
-        backendProc.on("error", (err) => console.error("Backend failed to start:", err.message));
-      });
-
-      pip.on("error", () => {
-        backendProc = spawn("python3", ["-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"], {
-          stdio: "inherit",
-          cwd: process.cwd(),
-          env,
-        });
-        backendProc.on("error", (err) => console.error("Backend failed to start:", err.message));
+      proc.on("error", (err) => console.error("Backend failed to start:", err.message));
+      proc.on("exit", (code) => {
+        if (code) console.error(`Backend exited with code ${code}`);
       });
     },
     closeBundle() {
-      if (backendProc) backendProc.kill();
+      if (proc) proc.kill();
     },
   };
 }

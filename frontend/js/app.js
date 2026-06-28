@@ -272,16 +272,18 @@
     document.getElementById("resume-content").textContent = data.resume_output || "";
     document.getElementById("cover-content").textContent = data.cover_letter_output || "";
 
-    document.getElementById("download-resume-btn").onclick = function () { downloadDoc("resume"); };
-    document.getElementById("download-cover-btn").onclick = function () { downloadDoc("cover-letter"); };
+    document.getElementById("download-resume-docx-btn").onclick = function () { downloadDoc("resume", "docx"); };
+    document.getElementById("download-resume-pdf-btn").onclick = function () { downloadDoc("resume", "pdf"); };
+    document.getElementById("download-cover-docx-btn").onclick = function () { downloadDoc("cover-letter", "docx"); };
+    document.getElementById("download-cover-pdf-btn").onclick = function () { downloadDoc("cover-letter", "pdf"); };
 
     document.getElementById("results-section").style.display = "block";
     document.getElementById("results-section").scrollIntoView({ behavior: "smooth" });
   }
 
-  async function downloadDoc(type) {
+  async function downloadDoc(type, format) {
     try {
-      var res = await apiFetch("/export/" + sessionId + "/" + type);
+      var res = await apiFetch("/export/" + sessionId + "/" + type + "?format=" + format);
       if (!res.ok) {
         showToast("Download failed. Please try again.");
         return;
@@ -290,7 +292,7 @@
       var url = URL.createObjectURL(blob);
       var a = document.createElement("a");
       a.href = url;
-      a.download = type + "-" + Date.now() + ".docx";
+      a.download = type + "-" + Date.now() + "." + format;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
