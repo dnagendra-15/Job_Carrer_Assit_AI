@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getSelectedModel } from "./model-discovery.js";
+import { getSelectedModel, getDiscoveredModels } from "./model-discovery.js";
 
 let googleClient = null;
 
@@ -110,6 +110,22 @@ const PROVIDER_CALLERS = {
   xai: callXAI,
 };
 
+const GOOGLE_FALLBACK_CHAIN = [
+  "gemini-2.0-flash",
+  "gemini-2.5-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+];
+
+function isRetryable(err) {
+  const msg = err.message || "";
+  return msg.includes("429") || msg.includes("503") || msg.includes("overloaded") || msg.includes("quota") || msg.includes("high demand");
+}
+
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function callAI(prompt, taskName) {
   const { provider, model } = getSelectedModel(taskName);
   const temperature = TEMPERATURE_MAP[taskName] || 0.3;
@@ -119,5 +135,48 @@ export async function callAI(prompt, taskName) {
     throw new Error(`Unknown provider: ${provider}`);
   }
 
-  return caller(prompt, model, temperature);
+  // Try the selected model first with retry
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await caller(prompt, model, temperature);
+    } catch (err) {
+      console.error(`[AI] ${provider}/${model} attempt ${attempt + 1} failed: ${err.message.slice(0, 120)}`);
+      if (!isRetryable(err)) throw err;
+      if (attempt === 0) await sleep(2000);
+    }
+  }
+
+  // If Google provider failed, try fallback models
+  if (provider === "google") {
+    const discovered = getDiscoveredModels().google || [];
+    const availableIds = discovered.map((m) => m.id);
+    const fallbacks = GOOGLE_FALLBACK_CHAIN.filter((f) => f !== model && availableIds.includes(f));
+
+    for (const fallbackModel of fallbacks) {
+      try {
+        console.log(`[AI] Trying fallback: google/${fallbackModel}`);
+        return await callGoogle(prompt, fallbackModel, temperature);
+      } catch (err) {
+        console.error(`[AI] Fallback google/${fallbackModel} failed: ${err.message.slice(0, 80)}`);
+        if (!isRetryable(err)) throw err;
+      }
+    }
+  }
+
+  // Try other available providers as last resort
+  const availableProviders = Object.keys(getDiscoveredModels()).filter((p) => p !== provider);
+  for (const altProvider of availableProviders) {
+    const altCaller = PROVIDER_CALLERS[altProvider];
+    const altModels = getDiscoveredModels()[altProvider];
+    if (!altCaller || !altModels || altModels.length === 0) continue;
+    const altModel = altModels[0].id;
+    try {
+      console.log(`[AI] Cross-provider fallback: ${altProvider}/${altModel}`);
+      return await altCaller(prompt, altModel, temperature);
+    } catch (err) {
+      console.error(`[AI] Cross-provider ${altProvider}/${altModel} failed: ${err.message.slice(0, 80)}`);
+    }
+  }
+
+  throw new Error("All AI providers are unavailable. Please check your API keys and quotas.");
 }

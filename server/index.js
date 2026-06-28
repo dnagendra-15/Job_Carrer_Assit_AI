@@ -191,6 +191,16 @@ app.post("/api/analyze", upload.single("resume"), async (req, res) => {
     });
   } catch (err) {
     console.error("Analyze error:", err);
+    const msg = err.message || "";
+    if (msg.includes("quota") || msg.includes("429") || msg.includes("Too Many Requests")) {
+      return res.status(429).json({ detail: "AI API rate limit reached. Please wait a moment and try again." });
+    }
+    if (msg.includes("503") || msg.includes("overloaded") || msg.includes("high demand")) {
+      return res.status(503).json({ detail: "AI model is temporarily overloaded. Please try again in a few seconds." });
+    }
+    if (msg.includes("All AI providers are unavailable")) {
+      return res.status(503).json({ detail: "All AI providers are unavailable. Please check API keys and quotas." });
+    }
     return res.status(500).json({ detail: "Internal server error. Please try again." });
   }
 });
