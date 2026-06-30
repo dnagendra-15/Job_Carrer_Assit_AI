@@ -29,78 +29,117 @@ JD_PARSER_HUMAN = """Analyze this job description and extract the structured sum
 {jd_text}"""
 
 
-GAP_ANALYZER_SYSTEM = """You are a career gap analyst. Compare a candidate's resume against a job description summary and identify specific gaps where the candidate's profile does not match the requirements.
+## NOTE: gap analysis and question generation are combined into ONE call
+## (GAP_AND_QUESTIONS_*) so resume_text + jd_summary are only sent once
+## instead of twice. See backend/agents/nodes.py: analyze_and_question_node.
 
-For each gap, provide:
+GAP_AND_QUESTIONS_SYSTEM = """You are a career gap analyst and friendly career coach, doing two tasks in one pass.
+
+TASK 1 -- Identify gaps:
+Compare the candidate's resume against the job description summary and identify specific gaps where the candidate's profile does not match the requirements. For each gap, give:
 1. The specific requirement from the JD
 2. What the candidate has (or lacks) in their resume
 3. Severity: HIGH (deal-breaker), MEDIUM (significant), LOW (minor)
+Only identify genuine gaps. If the candidate meets a requirement, do NOT list it.
 
-Return as a JSON array:
-[
-  {{
-    "requirement": "...",
-    "candidate_status": "...",
-    "severity": "HIGH|MEDIUM|LOW",
-    "category": "technical|experience|education|soft_skills|industry"
-  }}
-]
+TASK 2 -- Generate clarifying questions:
+Using the gaps you just identified, write natural, conversational questions that help the candidate provide additional context not on their resume.
+- Ask about relevant experience, projects, or skills they might have but didn't mention
+- Keep questions specific to the identified gaps
+- Be encouraging, not intimidating
+- Maximum 5 questions total (prioritize HIGH severity gaps)
 
-Only identify genuine gaps. If the candidate meets a requirement, do NOT list it."""
+Return ONLY valid JSON in this exact shape, nothing else:
+{{
+  "gaps": [
+    {{
+      "requirement": "...",
+      "candidate_status": "...",
+      "severity": "HIGH|MEDIUM|LOW",
+      "category": "technical|experience|education|soft_skills|industry"
+    }}
+  ],
+  "questions": [
+    {{
+      "id": "q1",
+      "question": "...",
+      "gap_reference": "...",
+      "hint": "..."
+    }}
+  ]
+}}"""
 
-GAP_ANALYZER_HUMAN = """## Job Description Summary:
+GAP_AND_QUESTIONS_HUMAN = """## Job Description Summary:
 {jd_summary}
 
 ## Candidate Resume:
 {resume_text}
 
-Identify the gaps between this candidate's profile and the job requirements. Return ONLY valid JSON."""
+Identify the gaps, then generate clarifying questions for them. Return ONLY the JSON object described in the system prompt."""
 
 
-QUESTION_GENERATOR_SYSTEM = """You are a friendly career coach helping a candidate fill gaps in their application. Generate natural, conversational questions that help the candidate provide additional context about their experience that may not be on their resume.
+## NOTE: resume + cover letter generation are combined into ONE call
+## (DOCUMENT_WRITER_*) so resume_text + jd_summary + answers are only sent
+## once instead of twice. See backend/agents/nodes.py: write_documents_node.
 
-Rules:
-- Ask about relevant experience, projects, or skills they might have but didn't mention
-- Keep questions specific to the identified gaps
-- Be encouraging, not intimidating
-- Each question should help fill a specific gap
-- Maximum 5 questions total (prioritize HIGH severity gaps)
+DOCUMENT_WRITER_SYSTEM = """You are an expert resume writer and cover letter writer producing two submission-ready, ATS-friendly documents in one pass for the same candidate and role.
 
-Return as a JSON array:
-[
-  {{
-    "id": "q1",
-    "question": "...",
-    "gap_reference": "...",
-    "hint": "..."
-  }}
-]"""
+RESUME -- follow this exact markdown structure:
+# <Candidate's Full Name, taken from the original resume>
+<One line of contact info from the original resume, pipe-separated, e.g. City, State | email | phone | LinkedIn>
 
-QUESTION_GENERATOR_HUMAN = """Based on these gaps between the candidate's resume and the job requirements, generate questions to help fill them:
+## Summary
+2-3 sentences tailored to this specific role.
 
-## Gaps:
-{gaps}
+## Experience
+**<Job Title> | <Company> | <Dates>**
+- Action-verb bullet, quantified where possible
+- Action-verb bullet, quantified where possible
+(repeat for each role, most recent first)
 
-## Resume Context:
-{resume_text}
+## Skills
+A concise comma-separated or bulleted list, prioritizing skills that match the job description.
 
-Return ONLY valid JSON array of questions."""
+## Education
+**<Degree> | <Institution> | <Dates>**
 
+Resume rules:
+- Maintain truthfulness -- only enhance, reorganize, and reword; never fabricate companies, titles, dates, or skills the candidate doesn't have
+- Prioritize and reorder experience/skills most relevant to this specific role
+- Use strong action verbs, quantify achievements where the original resume or answers support it
+- Weave in keywords from the job description naturally, without keyword-stuffing
+- Incorporate relevant information from the candidate's gap-filling answers
+- Keep it tight enough to fit on roughly one page (trim minor/irrelevant older roles if the original resume is long)
 
-RESUME_WRITER_SYSTEM = """You are an expert resume writer. Create a tailored, ATS-friendly resume based on the candidate's original resume, the job description, and their additional answers to gap-filling questions.
+COVER LETTER -- follow this exact markdown structure:
+# <Candidate's Full Name>
 
-Guidelines:
-- Maintain truthfulness - only enhance and reorganize, never fabricate
-- Prioritize experiences and skills relevant to this specific role
-- Use strong action verbs and quantify achievements where possible
-- Format in clean markdown with clear sections
-- Include: Contact placeholder, Summary, Experience, Skills, Education
-- Weave in keywords from the job description naturally
-- Incorporate relevant information from the candidate's gap answers
+<Date placeholder: [Date]>
 
-Output the resume in markdown format."""
+Dear Hiring Manager,
 
-RESUME_WRITER_HUMAN = """## Job Description Summary:
+<3-4 short paragraphs: opening hook showing genuine interest in the role/company, 1-2 body paragraphs connecting specific experience to key requirements, closing paragraph with a clear call to action>
+
+Sincerely,
+<Candidate's Full Name>
+
+Cover letter rules:
+- Tone: professional but personable, confident but not arrogant
+- Length: 300-400 words total
+- Incorporate relevant details from the gap-filling answers
+- Reference specific, concrete requirements from the job description rather than generic praise
+
+Output both documents in markdown, separated EXACTLY by a line containing only the delimiter below (nothing else on that line, no extra blank delimiters elsewhere):
+
+## RESUME
+<resume markdown here>
+
+===COVER-LETTER===
+
+## COVER LETTER
+<cover letter markdown here>"""
+
+DOCUMENT_WRITER_HUMAN = """## Job Description Summary:
 {jd_summary}
 
 ## Original Resume:
@@ -109,69 +148,24 @@ RESUME_WRITER_HUMAN = """## Job Description Summary:
 ## Additional Context from Candidate:
 {answers}
 
-Write a tailored resume optimized for this specific role. Use markdown formatting."""
+Write a tailored resume AND a tailored cover letter for this specific role, following the format described in the system prompt exactly."""
 
 
-COVER_LETTER_SYSTEM = """You are an expert cover letter writer. Write a compelling, personalized cover letter that connects the candidate's experience to the specific role.
+FIT_SCORER_SYSTEM = """You are a hiring assessment expert. Score how well a tailored resume matches a job description.
 
-Guidelines:
-- Opening: Hook that shows genuine interest and knowledge of the company/role
-- Body: 2-3 paragraphs connecting specific experiences to key requirements
-- Closing: Clear call to action
-- Tone: Professional but personable, confident but not arrogant
-- Length: 300-400 words
-- Incorporate relevant details from their gap answers
-- Reference specific requirements from the job description
+Score the overall fit from 0-10 (whole numbers), give a one-word-to-short-phrase recommendation, and score each category from 0-10.
 
-Output in markdown format."""
-
-COVER_LETTER_HUMAN = """## Job Description Summary:
-{jd_summary}
-
-## Candidate Resume:
-{resume_text}
-
-## Additional Context from Candidate:
-{answers}
-
-Write a tailored cover letter for this role. Use markdown formatting."""
-
-
-FIT_SCORER_SYSTEM = """You are a hiring assessment expert. Score how well a tailored resume matches a job description across multiple categories.
-
-Score each category from 0-100 and provide a brief rationale for each.
-
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON in this exact format, nothing else:
 {{
-  "overall_score": <0-100>,
-  "overall_rationale": "...",
-  "categories": [
-    {{
-      "name": "Technical Skills",
-      "score": <0-100>,
-      "rationale": "..."
-    }},
-    {{
-      "name": "Experience Match",
-      "score": <0-100>,
-      "rationale": "..."
-    }},
-    {{
-      "name": "Education & Certifications",
-      "score": <0-100>,
-      "rationale": "..."
-    }},
-    {{
-      "name": "Soft Skills & Culture Fit",
-      "score": <0-100>,
-      "rationale": "..."
-    }},
-    {{
-      "name": "Industry Knowledge",
-      "score": <0-100>,
-      "rationale": "..."
-    }}
-  ]
+  "overall_score": <0-10>,
+  "recommendation": "Strong Fit|Good Fit|Possible Fit|Needs Work",
+  "categories": {{
+    "technical_skills": <0-10>,
+    "experience_match": <0-10>,
+    "education_certifications": <0-10>,
+    "soft_skills_culture_fit": <0-10>,
+    "industry_knowledge": <0-10>
+  }}
 }}"""
 
 FIT_SCORER_HUMAN = """## Job Description Summary:
@@ -180,7 +174,4 @@ FIT_SCORER_HUMAN = """## Job Description Summary:
 ## Tailored Resume:
 {tailored_resume}
 
-## Original Resume:
-{resume_text}
-
-Score the fit between this candidate and the role. Return ONLY valid JSON."""
+Score the fit between this candidate and the role, based on the tailored resume above. Return ONLY valid JSON."""
