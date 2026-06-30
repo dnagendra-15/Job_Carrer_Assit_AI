@@ -1,0 +1,27 @@
+# API Keys and Environment Variables
+.env
+.env.*
+
+# Python Virtual Environment
+venv/
+env/
+Include/
+Lib/
+Scripts/
+
+# Node.js Dependencies (Frontend)
+node_modules/
+dist/
+
+# Python Cache (These were accidentally uploaded)
+__pycache__/
+*.pyc
+
+# LangGraph SQLite Checkpoints
+backend/data/*.sqlite
+backend/data/*.sqlite-wal
+backend/checkpoints.sqlite
+backend/checkpoints.sqlite-wal
+
+# OS generated files
+.DS_Store
