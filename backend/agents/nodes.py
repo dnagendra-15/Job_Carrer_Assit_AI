@@ -21,6 +21,17 @@ def _extract_json(content: str, open_char: str, close_char: str):
             return json.loads(content[start:end])
         raise
 
+def _get_text_content(response) -> str:
+    """Safely extracts text from an LLM response, handling lists of blocks."""
+    content = response.content
+    if isinstance(content, str):
+        return content
+    elif isinstance(content, list):
+        return "".join(
+            block.get("text", "") if isinstance(block, dict) else str(block)
+            for block in content
+        )
+    return str(content)
 
 def fetch_jd_node(state: PipelineState) -> dict:
     """
@@ -50,12 +61,15 @@ def parse_jd_node(state: PipelineState) -> dict:
         HumanMessage(content=prompts.JD_PARSER_HUMAN.format(jd_text=state["jd_text"]))
     ]
     response = llm.invoke(messages)
-    summary = response.content
+    
+    # 🟢 USE THE HELPER HERE instead of summary = response.content
+    summary = _get_text_content(response)
 
     # Pull title/company out of the summary's own ROLE:/COMPANY: lines
-    # instead of paying for a second LLM call to extract the same info.
     role_match = _ROLE_RE.search(summary)
     company_match = _COMPANY_RE.search(summary)
+    
+    # ... (rest of the function remains the same)
     jd_title = role_match.group(1).strip() if role_match else "Role"
     jd_company = company_match.group(1).strip() if company_match else "Company"
     if jd_company.lower().startswith("not specified"):
@@ -78,9 +92,10 @@ def analyze_and_question_node(state: PipelineState) -> dict:
             resume_text=state["resume_text"]
         ))
     ]
-    response = llm.invoke(messages)
+    response = llm.invoke(messages) 
     try:
-        parsed = _extract_json(response.content, "{", "}")
+    # Update here
+        parsed = _extract_json(_get_text_content(response), "{", "}")
         gaps = parsed.get("gaps", [])
         questions = parsed.get("questions", [])
     except (json.JSONDecodeError, AttributeError):
@@ -115,7 +130,8 @@ def write_documents_node(state: PipelineState) -> dict:
         ))
     ]
     response = llm.invoke(messages)
-    content = response.content
+# Update here
+    content = _get_text_content(response)
 
     if "===COVER-LETTER===" in content:
         resume_part, cover_part = content.split("===COVER-LETTER===", 1)
@@ -141,7 +157,8 @@ def score_fit_node(state: PipelineState) -> dict:
     ]
     response = llm.invoke(messages)
     try:
-        parsed = _extract_json(response.content, "{", "}")
+    # Update here
+        parsed = _extract_json(_get_text_content(response), "{", "}")
         fit_score = int(parsed.get("overall_score", 0))
         fit_recommendation = parsed.get("recommendation", "")
         fit_breakdown = parsed.get("categories", {})

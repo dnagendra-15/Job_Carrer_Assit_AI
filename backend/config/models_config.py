@@ -6,14 +6,14 @@ MODEL_CONFIG = {
     # GEMINI: Reads the long Job Description text
     "jd_parser": {
         "provider": "google",
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.1-flash-lite",
         "temperature": 0.1
     },
     
     # OPENAI: Analyzes the heavy resume text and guarantees perfect JSON output
     "gap_analyzer": {
         "provider": "google",
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.5-flash",
         "temperature": 0.2
     },
     
@@ -39,8 +39,8 @@ MODEL_CONFIG = {
     
     # OPENAI: Evaluates the final result and returns a safe JSON score
     "fit_scorer": {
-        "provider": "openai",
-        "model": "gpt-4o-mini",
+        "provider": "google",
+        "model": "gemini-3.5-flash",
         "temperature": 0.1
     }
 }
